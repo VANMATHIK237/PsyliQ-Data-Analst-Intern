@@ -1,0 +1,141 @@
+name: D.velop Weekly Delivery
+
+on:
+  schedule:
+    # Every Monday at 1:00 AM IST (19:30 UTC on Sunday)
+    - cron: "30 19 * * 0"
+
+  # Allows manual testing from GitHub Actions
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-weekly-delivery:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create weekly parent and sub-issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -e
+
+          # ---------------------------------------------------------
+          # Calculate Monday and Friday dates for the current week
+          # ---------------------------------------------------------
+          MONDAY=$(date -u -d 'last monday' +%Y-%m-%d)
+
+          # If workflow runs on Monday, use today as Monday
+          if [ "$(date -u +%u)" = "1" ]; then
+            MONDAY=$(date -u +%Y-%m-%d)
+          fi
+
+          FRIDAY=$(date -u -d "$MONDAY + 4 days" +%Y-%m-%d)
+
+          # ISO week number
+          WEEK=$(date -u -d "$MONDAY" +%V)
+
+          echo "Week: $WEEK"
+          echo "Monday: $MONDAY"
+          echo "Friday: $FRIDAY"
+
+          # ---------------------------------------------------------
+          # Formatting date display for parent title:
+          # Example output: D.velop | Weekly Delivery | Week 42 ( Oct 12 - Oct 16 )
+          # ---------------------------------------------------------
+          START_MONTH=$(date -u -d "$MONDAY" +%b)
+          START_DAY=$(date -u -d "$MONDAY" +%-d)
+          
+          END_MONTH=$(date -u -d "$FRIDAY" +%b)
+          END_DAY=$(date -u -d "$FRIDAY" +%-d)
+
+          PARENT_TITLE="D.velop | Weekly Delivery | Week ${WEEK} ( ${START_MONTH} ${START_DAY} - ${END_MONTH} ${END_DAY} )"
+
+          echo "Parent title: $PARENT_TITLE"
+
+          # ---------------------------------------------------------
+          # Prevent duplicate creation if the workflow is run twice
+          # ---------------------------------------------------------
+          EXISTING=$(gh issue list \
+            --repo "$GH_REPO" \
+            --state open \
+            --search "\"$PARENT_TITLE\" in:title" \
+            --json number,title \
+            --jq ".[] | select(.title == \"$PARENT_TITLE\") | .number")
+
+          if [ -n "$EXISTING" ]; then
+            echo "Parent issue already exists: #$EXISTING"
+            exit 0
+          fi
+
+          # ---------------------------------------------------------
+          # Create parent issue
+          # ---------------------------------------------------------
+          PARENT_NUMBER=$(gh issue create \
+            --repo "$GH_REPO" \
+            --title "$PARENT_TITLE" \
+            --body "## D.velop Weekly Delivery
+
+          **Week:** Week ${WEEK}
+          **Period:** ${MONDAY} to ${FRIDAY}
+
+          ### Sub-issues
+
+          The following tasks are included in this weekly delivery:
+
+          - D.velop | Tax
+          - D.velop | EDI
+          - D.velop | Reim
+          - D.velop | Late Deliveries
+          - D.velop | Fehlmenge
+
+          Created automatically every Monday at 1:00 AM IST." \
+            | grep -oE '[0-9]+$')
+
+          echo "Created parent issue: #$PARENT_NUMBER"
+
+          # ---------------------------------------------------------
+          # Create sub-issues
+          # ---------------------------------------------------------
+          SUB_ISSUES=(
+            "D.velop | Tax"
+            "D.velop | EDI"
+            "D.velop | Reim"
+            "D.velop | Late Deliveries"
+            "D.velop | Fehlmenge"
+          )
+
+          for TITLE in "${SUB_ISSUES[@]}"; do
+
+            echo "Creating sub-issue: $TITLE"
+
+            SUB_NUMBER=$(gh issue create \
+              --repo "$GH_REPO" \
+              --title "$TITLE" \
+              --body "## D.velop Weekly Delivery
+
+          **Parent:** #${PARENT_NUMBER}
+          **Week:** Week ${WEEK}
+          **Period:** ${MONDAY} to ${FRIDAY}
+
+          This task is part of the weekly D.velop delivery." \
+              --parent "$PARENT_NUMBER" \
+              | grep -oE '[0-9]+$')
+
+            echo "Created sub-issue #$SUB_NUMBER"
+
+            # Small delay to avoid API secondary rate limiting
+            sleep 2
+
+          done
+
+          echo "----------------------------------------"
+          echo "D.velop Weekly Delivery created successfully"
+          echo "Parent issue: #$PARENT_NUMBER"
+          echo "Week: $WEEK"
+          echo "Period: $MONDAY to $FRIDAY"
+          echo "----------------------------------------"
