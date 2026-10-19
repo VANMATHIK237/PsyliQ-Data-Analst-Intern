@@ -29,14 +29,11 @@ jobs:
           # ---------------------------------------------------------
           MONDAY=$(date -u -d 'last monday' +%Y-%m-%d)
 
-          # If workflow runs on Monday, use today as Monday
           if [ "$(date -u +%u)" = "1" ]; then
             MONDAY=$(date -u +%Y-%m-%d)
           fi
 
           FRIDAY=$(date -u -d "$MONDAY + 4 days" +%Y-%m-%d)
-
-          # Get current ISO week number dynamically
           WEEK=$(date -u -d "$MONDAY" +%V)
 
           echo "Calculated Week: $WEEK"
@@ -45,7 +42,6 @@ jobs:
 
           # ---------------------------------------------------------
           # Format dynamic month names and days for the Parent Title
-          # Example: D.velop | Weekly Delivery | Week 42 ( Oct 19 - Oct 23 )
           # ---------------------------------------------------------
           START_MONTH=$(date -u -d "$MONDAY" +%b)
           START_DAY=$(date -u -d "$MONDAY" +%-d)
@@ -73,7 +69,7 @@ jobs:
           fi
 
           # ---------------------------------------------------------
-          # 1. Create main Parent issue with dynamic dates
+          # 1. Create main Parent issue
           # ---------------------------------------------------------
           PARENT_NUMBER=$(gh issue create \
             --repo "$GH_REPO" \
@@ -84,7 +80,7 @@ jobs:
           **Period:** ${MONDAY} to ${FRIDAY}
 
           Created automatically every Monday at 1:00 AM IST." \
-            | grep -oE '[0-9]+$')
+            | grep -oE '[0-9]+$' | tail -n 1)
 
           echo "Created main parent issue: #$PARENT_NUMBER"
 
@@ -100,7 +96,7 @@ jobs:
           )
 
           # ---------------------------------------------------------
-          # 2. Create Category issues and Daily Sub-issues dynamically
+          # 2. Create Category issues and Daily Sub-issues
           # ---------------------------------------------------------
           for CAT in "${CATEGORIES[@]}"; do
 
@@ -116,14 +112,13 @@ jobs:
           **Parent:** #${PARENT_NUMBER}
           **Week:** Week ${WEEK}
           **Period:** ${MONDAY} to ${FRIDAY}" \
-              --parent "$PARENT_NUMBER" \
-              | grep -oE '[0-9]+$')
+            | grep -oE '[0-9]+$' | tail -n 1)
 
-            echo "Created Category Issue #$CAT_NUMBER under Parent #$PARENT_NUMBER"
+            echo "Created Category Issue #$CAT_NUMBER"
             sleep 2
 
             # -------------------------------------------------------
-            # 3. Create Daily Sub-issues (Monday through Friday of current week)
+            # 3. Create Daily Sub-issues (Monday through Friday)
             # -------------------------------------------------------
             for i in {0..4}; do
               DAY_DATE=$(date -u -d "$MONDAY + $i days" +%d-%m-%Y)
@@ -141,10 +136,9 @@ jobs:
           **Category Parent:** #${CAT_NUMBER}
           **Main Weekly Parent:** #${PARENT_NUMBER}
           **Date:** $DAY_DATE" \
-                --parent "$CAT_NUMBER" \
-                | grep -oE '[0-9]+$')
+            | grep -oE '[0-9]+$' | tail -n 1)
 
-              echo "Created Daily Sub-issue #$SUB_NUMBER under Category #$CAT_NUMBER"
+              echo "Created Daily Sub-issue #$SUB_NUMBER"
               sleep 2
             done
 
