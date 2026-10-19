@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create parent, category, and daily sub-issues
+      - name: Create dynamic parent, category, and daily sub-issues
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -25,7 +25,7 @@ jobs:
           set -e
 
           # ---------------------------------------------------------
-          # Calculate Monday and Friday dates for the current week
+          # Calculate current Monday and Friday dynamically
           # ---------------------------------------------------------
           MONDAY=$(date -u -d 'last monday' +%Y-%m-%d)
 
@@ -36,16 +36,16 @@ jobs:
 
           FRIDAY=$(date -u -d "$MONDAY + 4 days" +%Y-%m-%d)
 
-          # ISO week number
+          # Get current ISO week number dynamically
           WEEK=$(date -u -d "$MONDAY" +%V)
 
-          echo "Week: $WEEK"
-          echo "Monday: $MONDAY"
-          echo "Friday: $FRIDAY"
+          echo "Calculated Week: $WEEK"
+          echo "Calculated Monday: $MONDAY"
+          echo "Calculated Friday: $FRIDAY"
 
           # ---------------------------------------------------------
-          # Parent issue title format:
-          # D.velop | Weekly Delivery | Week 42 ( Oct 12 - Oct 16 )
+          # Format dynamic month names and days for the Parent Title
+          # Example: D.velop | Weekly Delivery | Week 42 ( Oct 19 - Oct 23 )
           # ---------------------------------------------------------
           START_MONTH=$(date -u -d "$MONDAY" +%b)
           START_DAY=$(date -u -d "$MONDAY" +%-d)
@@ -73,7 +73,7 @@ jobs:
           fi
 
           # ---------------------------------------------------------
-          # 1. Create main Parent issue
+          # 1. Create main Parent issue with dynamic dates
           # ---------------------------------------------------------
           PARENT_NUMBER=$(gh issue create \
             --repo "$GH_REPO" \
@@ -100,7 +100,7 @@ jobs:
           )
 
           # ---------------------------------------------------------
-          # 2. Create Category issues under Parent & Daily Sub-issues
+          # 2. Create Category issues and Daily Sub-issues dynamically
           # ---------------------------------------------------------
           for CAT in "${CATEGORIES[@]}"; do
 
@@ -123,11 +123,10 @@ jobs:
             sleep 2
 
             # -------------------------------------------------------
-            # 3. Create Daily Sub-issues (Monday to Friday)
+            # 3. Create Daily Sub-issues (Monday through Friday of current week)
             # -------------------------------------------------------
             for i in {0..4}; do
               DAY_DATE=$(date -u -d "$MONDAY + $i days" +%d-%m-%Y)
-              # Formatting date to match the image: DD-MM- YYYY
               FORMATTED_DATE=$(date -u -d "$MONDAY + $i days" "+%d-%m- %Y")
               
               DAILY_TITLE="D.velop | $CAT | $FORMATTED_DATE"
@@ -154,4 +153,6 @@ jobs:
           echo "----------------------------------------"
           echo "D.velop Weekly Delivery structure created successfully!"
           echo "Main Parent: #$PARENT_NUMBER"
+          echo "Week: $WEEK"
+          echo "Period: $MONDAY to $FRIDAY"
           echo "----------------------------------------"
